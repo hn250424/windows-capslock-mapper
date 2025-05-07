@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <windows.h>
+#include "mutex.h"
 
 int isLeftDown = 0;
 
@@ -37,10 +38,26 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
 
 int main() {
     FreeConsole();
+    
+    HANDLE hMutex;
+
+    int response = is_mutex_exist("Global\\KM_MAPPER_MUTEX");
+    if (response) {
+        // printf("km_mapper is already running.\n");
+        return 0;
+    } else {
+        // printf("km_mapper is not running.\n");
+        hMutex = create_global_mutex("Global\\KM_MAPPER_MUTEX");
+
+        if (! hMutex) {
+            // printf("Failed to create mutex.\n");
+            return 1;
+        }
+    }
 
     HHOOK hHook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardProc, NULL, 0);
     if (!hHook) {
-        printf("Fail to install hook\n");
+        // printf("Fail to install hook\n");
         return 1;
     }
 
@@ -51,6 +68,7 @@ int main() {
     }
 
     UnhookWindowsHookEx(hHook);
+    close_mutex(hMutex);
 
     return 0;
 }

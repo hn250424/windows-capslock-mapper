@@ -1,14 +1,17 @@
 # Windows-Keymap
 
-A small Windows utility that allows you to use the Caps Lock key to simulate a left mouse click, helping reduce strain on the right wrist. It provides simple command-line options to start, stop, and manage the behavior of `km_main.exe`.
+A small Windows utility that maps the Caps Lock key to simulate a left mouse click, helping reduce strain on your right wrist. It offers fast and simple command-line options, making it especially useful for developers who are comfortable with the CLI.
 
 ## Features
 
-- **Simulate Left Click** using the Caps Lock key
-- **Start and Stop** the background utility (`km_main.exe`)
-- **Enable or Disable Auto-Start** at login via registry
-- **Check Running Status** of the utility
-- **Display Version Info**
+- **Simulate left mouse clicks using the Caps Lock key**
+Helps reduce on the right wrist strain by allowing you to click without using the mouse button.
+
+- **Caps Lock function is overridden while the program is running**
+To type capital letters, use the Shift key instead of Caps Lock during operation.
+
+- **Quickly enable or disable with simple CLI commands**
+In cases where holding Shift isn't practical—like writing in all caps—you can easily pause and resume the program using km off and km on.
 
 ## Commands
 
