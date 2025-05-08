@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <windows.h>
-#include "mutex.h"
+#include "constants/app_constants.h"
+#include "constants/key_constants.h"
+#include "utils/mutex.h"
 
 int isLeftDown = 0;
 
@@ -41,23 +43,19 @@ int main() {
     
     HANDLE hMutex;
 
-    int response = is_mutex_exist("Global\\KM_MAPPER_MUTEX");
+    int response = is_mutex_exist(MUTEX_KEY_RUNNER);
     if (response) {
-        // printf("km_mapper is already running.\n");
         return 0;
     } else {
-        // printf("km_mapper is not running.\n");
-        hMutex = create_global_mutex("Global\\KM_MAPPER_MUTEX");
+        hMutex = create_global_mutex(MUTEX_KEY_RUNNER);
 
         if (! hMutex) {
-            // printf("Failed to create mutex.\n");
             return 1;
         }
     }
 
     HHOOK hHook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardProc, NULL, 0);
     if (!hHook) {
-        // printf("Fail to install hook\n");
         return 1;
     }
 
