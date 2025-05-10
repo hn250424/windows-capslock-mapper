@@ -2,6 +2,7 @@
 #include <windows.h>
 #include "constants/app_constants.h"
 #include "constants/key_constants.h"
+#include "constants/result_constants.h"
 #include "utils/mutex.h"
 
 int isLeftDown = 0;
@@ -33,6 +34,8 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                 isLeftDown = 0;
                 return 1;
             }
+
+            return 1;
         }
     }
     return CallNextHookEx(NULL, nCode, wParam, lParam);
@@ -44,7 +47,7 @@ int main() {
     HANDLE hMutex;
 
     int response = is_mutex_exist(MUTEX_KEY_RUNNER);
-    if (response) {
+    if (response == MUTEX_FOUND) {
         return 0;
     } else {
         hMutex = create_global_mutex(MUTEX_KEY_RUNNER);
@@ -55,7 +58,7 @@ int main() {
     }
 
     HHOOK hHook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardProc, NULL, 0);
-    if (!hHook) {
+    if (! hHook) {
         return 1;
     }
 

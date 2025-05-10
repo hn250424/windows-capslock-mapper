@@ -4,5 +4,6 @@
 extern const char APP_NAME[];
 extern const char APP_CMD[];
 extern const char APP_RUNNER[];
+extern const char VERSION[];
 
 #endif

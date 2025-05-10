@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <windows.h>
 #include "common.h"
-#include "../constants/error_constants.h"
+#include "../constants/result_constants.h"
 
 int get_current_path(char* exeDirPath , const char* fileName) {
     DWORD result = GetModuleFileName(NULL, exeDirPath , MAX_PATH);

@@ -7,48 +7,56 @@
 #include "constants/key_constants.h"
 #include "constants/result_constants.h"
 #include "utils/common.h"
-#include "utils/env.h"
 #include "utils/mutex.h"
+#include "utils/env.h"
+#include "utils/registry.h"
 
 #include "process.h"
 
 int on_runner() {
     int response = is_mutex_exist(MUTEX_KEY_RUNNER);
-    if (response) {
-        printf("Program is already running.\n");
+    if (response == MUTEX_FOUND) {
+        printf(MUTEX_FOUND_MESSAGE);
     } else {
         char path[MAX_PATH];
-        DWORD result = GetModuleFileName(NULL, path, MAX_PATH);
-        if (result == 0) {
-            printf("Failed to get the executable path.\n");
-            return FAIL;
-        }
+        int currentPathResult = get_current_path(path, APP_CMD);
+        
+        if (currentPathResult != SUCCESS) {
+            if  (currentPathResult == ERR_GET_EXE_PATH) printf(ERR_GET_EXE_PATH_MESSAGE);
+            else if (currentPathResult == ERR_CUTPOINT_NOT_FOUND) printf(ERR_CUTPOINT_NOT_FOUND_MESSAGE);
 
-        *strstr(path, APP_CMD) = '\0';
+            return currentPathResult;
+        } 
+
         strcat(path, APP_RUNNER);
 
         char command[MAX_PATH + 20];
         snprintf(command, sizeof(command), "start /B %s", path);
         system(command);
 
-        printf("Program is running...\n");
+        printf("Program has started.\n");
     }
 
     return SUCCESS;
 }
 
 int off_runner() {
-    char command[MAX_PATH + 20];
-    snprintf(command, sizeof(command), "taskkill /F /IM %s >nul 2>&1", APP_RUNNER);
-    system(command);
-    printf("Program has stopped\n");
+    int response = is_mutex_exist(MUTEX_KEY_RUNNER);
+    if (response == MUTEX_FOUND) {
+        char command[MAX_PATH + 20];
+        snprintf(command, sizeof(command), "taskkill /F /IM %s >nul 2>&1", APP_RUNNER);
+        system(command);
+        printf("Program has stopped.\n");
+    } else {
+        printf("Program was not running.\n");
+    }
+    
     return SUCCESS;
 }
 
 int show_status() {
     // 1. Check Mutex.
     int mutex_response = is_mutex_exist(MUTEX_KEY_RUNNER);
-    printf("[Mutex] %s\n", mutex_response ? "Program is running." : "Program is not running.");
 
     // 2. Check Env.
     // Get env path.
@@ -58,10 +66,10 @@ int show_status() {
 
     int envPathResult = get_env_path(&hKey_env, &size, &envPath);
     if (envPathResult != SUCCESS) {
-        if (envPathResult == ERR_REG_KEY_OPEN) printf("Failed to open registry key.\n");
-        else if (envPathResult == ERR_ENV_QUERY_SIZE) printf("Failed to query size of environment variable.\n");
-        else if (envPathResult == ERR_MEMORY_ALLOCATION) printf("Memory allocation failed.\n");
-        else if (envPathResult == ERR_GET_ENVIRONMENT_VAR) printf("Failed to get the current environment variable.\n");
+        if (envPathResult == ERR_REG_KEY_OPEN) printf(ERR_REG_KEY_OPEN_MESSAGE);
+        else if (envPathResult == ERR_ENV_QUERY_SIZE) printf(ERR_ENV_QUERY_SIZE_MESSAGE);
+        else if (envPathResult == ERR_MEMORY_ALLOCATION) printf(ERR_MEMORY_ALLOCATION_MESSAGE);
+        else if (envPathResult == ERR_GET_ENVIRONMENT_VAR) printf(ERR_GET_ENVIRONMENT_VAR_MESSAGE);
 
         RegCloseKey(hKey_env);
         free(envPath);
@@ -72,40 +80,37 @@ int show_status() {
     // Get Exe dir path.
     char exeDirPath[MAX_PATH];
     int currentPathResult = get_current_path(exeDirPath, APP_CMD);
+    strcat(exeDirPath, ";");
     
     if (currentPathResult != SUCCESS) {
-        if  (currentPathResult == ERR_GET_EXE_PATH) printf("Failed to get the executable path.\n");
-        else if (currentPathResult == ERR_CUTPOINT_NOT_FOUND) printf("Failed to find cut pointer.\n");
+        if  (currentPathResult == ERR_GET_EXE_PATH) printf(ERR_GET_EXE_PATH_MESSAGE);
+        else if (currentPathResult == ERR_CUTPOINT_NOT_FOUND) printf(ERR_CUTPOINT_NOT_FOUND_MESSAGE);
 
         free(envPath);
         RegCloseKey(hKey_env);
 
         return currentPathResult;
-    } else {
-        if (strstr(envPath, exeDirPath) == NULL) printf("[env] %s\n", "not exist env.");
-        else printf("[env] %s\n", "Exist env.");
-
-        free(envPath);
-        RegCloseKey(hKey_env);
-    }
+    } 
+    // Remember call free(envPath) & RegCloseKey(hKey_env)
 
     // 3. Check Registry.
-    HKEY hKey_reg;
-    LONG regResult = RegOpenKeyEx(HKEY_CURRENT_USER, REG_PATH, 0, KEY_QUERY_VALUE, &hKey_reg);
-    
-    if (regResult == ERROR_SUCCESS) {
-        regResult = RegQueryValueEx(hKey_reg, APP_NAME, NULL, NULL, NULL, NULL);
-        RegCloseKey(hKey_reg);
-        if (regResult == ERROR_SUCCESS) {
-            printf("Registry key exists.\n");
-        } else {
-            printf("Registry key does not exist.\n");
-        }
-    } else {
-        printf("Failed to open registry key.\n");
+    int registry_response = is_registry_exist();
+    if (registry_response == ERR_REG_KEY_OPEN) {
+        free(envPath);
+        RegCloseKey(hKey_env);
+
+        printf(ERR_REG_KEY_OPEN_MESSAGE);
         return ERR_REG_KEY_OPEN;
     }
 
+    // 4. print.
+    printf("[Running status]    %s\n", mutex_response == MUTEX_FOUND ? "Running." : "Not running.");
+    printf("[Env status]        %s\n", strstr(envPath, exeDirPath) == NULL ? "Not found." : "Found.");
+    printf("[Registry status]   %s\n", registry_response == REGISTRY_FOUND ? "Found." : "Not found.");
+    
+    // 5. clean.
+    free(envPath);
+    RegCloseKey(hKey_env);
     return SUCCESS;
 }
 
@@ -116,13 +121,13 @@ int add_env() {
 
     int envPathResult = get_env_path(&hKey, &size, &envPath);
     if (envPathResult != SUCCESS) {
-        if (envPathResult == ERR_REG_KEY_OPEN) printf("Failed to open registry key.\n");
-        else if (envPathResult == ERR_ENV_QUERY_SIZE) printf("Failed to query size of environment variable.\n");
-        else if (envPathResult == ERR_MEMORY_ALLOCATION) printf("Memory allocation failed.\n");
-        else if (envPathResult == ERR_GET_ENVIRONMENT_VAR) printf("Failed to get the current environment variable.\n");
+        if (envPathResult == ERR_REG_KEY_OPEN) printf(ERR_REG_KEY_OPEN_MESSAGE);
+        else if (envPathResult == ERR_ENV_QUERY_SIZE) printf(ERR_ENV_QUERY_SIZE_MESSAGE);
+        else if (envPathResult == ERR_MEMORY_ALLOCATION) printf(ERR_MEMORY_ALLOCATION_MESSAGE);
+        else if (envPathResult == ERR_GET_ENVIRONMENT_VAR) printf(ERR_GET_ENVIRONMENT_VAR_MESSAGE);
 
-        RegCloseKey(hKey);
         free(envPath);
+        RegCloseKey(hKey);
 
         return envPathResult;
     }
@@ -131,8 +136,8 @@ int add_env() {
     int currentPathResult = get_current_path(exeDirPath, APP_CMD);
 
     if (currentPathResult != SUCCESS) {
-        if  (currentPathResult == ERR_GET_EXE_PATH) printf("Failed to get the executable path.\n");
-        else if (currentPathResult == ERR_CUTPOINT_NOT_FOUND) printf("Failed to find cut pointer.\n");
+        if  (currentPathResult == ERR_GET_EXE_PATH) printf(ERR_GET_EXE_PATH_MESSAGE);
+        else if (currentPathResult == ERR_CUTPOINT_NOT_FOUND) printf(ERR_CUTPOINT_NOT_FOUND_MESSAGE);
 
         free(envPath);
         RegCloseKey(hKey);
@@ -140,6 +145,7 @@ int add_env() {
         return currentPathResult;
     } 
     
+    strcat(exeDirPath, ";");
     if (strstr(envPath, exeDirPath) == NULL) {
         size_t envLen = strlen(envPath);
         if (envLen > 0 && envPath[envLen - 1] != ';') {
@@ -148,16 +154,16 @@ int add_env() {
         strcat(envPath, exeDirPath);
 
         if (RegSetValueEx(hKey, "Path", 0, REG_SZ, (BYTE*)envPath, strlen(envPath) + 1) != ERROR_SUCCESS) {
-            printf("Failed to set environment variable.\n");
             free(envPath);
             RegCloseKey(hKey);
+            printf(ERR_SET_ENVIRONMENT_VAR_MESSAGE);
             return ERR_SET_ENVIRONMENT_VAR;
         }
 
         SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE, 0, (LPARAM)"Environment", SMTO_ABORTIFHUNG, 5000, NULL);
-        printf("Path updated successfully.\n");
+        printf("Environment path has been updated successfully.\n");
     } else {
-        printf("Path already contains this executable's path.\n");
+        printf("The environment path already includes this executable.\n");
     }
     
     free(envPath);
@@ -172,14 +178,13 @@ int remove_env() {
 
     int envPathResult = get_env_path(&hKey, &size, &envPath);
     if (envPathResult != SUCCESS) {
-        if (envPathResult == ERR_REG_KEY_OPEN) printf("Failed to open registry key.\n");
-        else if (envPathResult == ERR_ENV_QUERY_SIZE) printf("Failed to query size of environment variable.\n");
-        else if (envPathResult == ERR_MEMORY_ALLOCATION) printf("Memory allocation failed.\n");
-        else if (envPathResult == ERR_GET_ENVIRONMENT_VAR) printf("Failed to get the current environment variable.\n");
+        if (envPathResult == ERR_REG_KEY_OPEN) printf(ERR_REG_KEY_OPEN_MESSAGE);
+        else if (envPathResult == ERR_ENV_QUERY_SIZE) printf(ERR_ENV_QUERY_SIZE_MESSAGE);
+        else if (envPathResult == ERR_MEMORY_ALLOCATION) printf(ERR_MEMORY_ALLOCATION_MESSAGE);
+        else if (envPathResult == ERR_GET_ENVIRONMENT_VAR) printf(ERR_GET_ENVIRONMENT_VAR_MESSAGE);
 
-        RegCloseKey(hKey);
         free(envPath);
-
+        RegCloseKey(hKey);
         return envPathResult;
     }
 
@@ -187,16 +192,16 @@ int remove_env() {
     int currentPathResult = get_current_path(exeDirPath, APP_CMD);
 
     if (currentPathResult != SUCCESS) {
-        if  (currentPathResult == ERR_GET_EXE_PATH) printf("Failed to get the executable path.\n");
-        else if (currentPathResult == ERR_CUTPOINT_NOT_FOUND) printf("Failed to find cut pointer.\n");
+        if  (currentPathResult == ERR_GET_EXE_PATH) printf(ERR_GET_EXE_PATH_MESSAGE);
+        else if (currentPathResult == ERR_CUTPOINT_NOT_FOUND) printf(ERR_CUTPOINT_NOT_FOUND_MESSAGE);
 
         free(envPath);
         RegCloseKey(hKey);
-
         return currentPathResult;
     } 
 
     char* pathStart = strstr(envPath, exeDirPath);
+
     if (pathStart != NULL) {
         size_t pathLen = strlen(exeDirPath);
         memmove(pathStart, pathStart + pathLen, strlen(pathStart + pathLen) + 1);
@@ -207,17 +212,16 @@ int remove_env() {
         }
 
         if (RegSetValueEx(hKey, "Path", 0, REG_SZ, (BYTE*)envPath, strlen(envPath) + 1) != ERROR_SUCCESS) {
-            printf("Failed to set environment variable.\n");
             free(envPath);
             RegCloseKey(hKey);
+            printf(ERR_SET_ENVIRONMENT_VAR_MESSAGE);
             return ERR_SET_ENVIRONMENT_VAR;
         }
 
         SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE, 0, (LPARAM)"Environment", SMTO_ABORTIFHUNG, 5000, NULL);
-        printf("Path removed successfully.\n");
+        printf("Environment path has been removed successfully.\n");
     } else {
-        printf("Path not found in environment variable.\n");
-        return ERR_PATH_NOT_FOUND;
+        printf("The specified path is not found in the environment variable.\n");
     }
 
     free(envPath);
@@ -226,12 +230,23 @@ int remove_env() {
 }
 
 int add_registry() {
+    int response = is_registry_exist();
+    if (response == ERR_REG_KEY_OPEN) {
+        printf(ERR_REG_KEY_OPEN_MESSAGE);
+        return ERR_REG_KEY_OPEN;
+    } else if (response == REGISTRY_FOUND) {
+        printf("Already registered.\n");
+        return SUCCESS;
+    } 
+    
+    // response == REGISTRY_NOT_FOUND
+    
     char exeDirPath[MAX_PATH];
     int currentPathResult = get_current_path(exeDirPath, APP_CMD);
 
     if (currentPathResult != SUCCESS) {
-        if  (currentPathResult == ERR_GET_EXE_PATH) printf("Failed to get the executable path.\n");
-        else if (currentPathResult == ERR_CUTPOINT_NOT_FOUND) printf("Failed to find cut pointer.\n");
+        if  (currentPathResult == ERR_GET_EXE_PATH) printf(ERR_GET_EXE_PATH_MESSAGE);
+        else if (currentPathResult == ERR_CUTPOINT_NOT_FOUND) printf(ERR_CUTPOINT_NOT_FOUND_MESSAGE);
 
         return currentPathResult;
     } 
@@ -239,48 +254,59 @@ int add_registry() {
     strcat(exeDirPath, APP_RUNNER);
 
     HKEY hKey;
-    LONG regResult = RegOpenKeyEx(HKEY_CURRENT_USER, REG_PATH, 0, KEY_SET_VALUE, &hKey);
+    LONG openResult = RegOpenKeyEx(HKEY_CURRENT_USER, REG_PATH, 0, KEY_SET_VALUE, &hKey);
 
-    if (regResult == ERROR_SUCCESS) {
-        regResult = RegSetValueEx(hKey, APP_NAME, 0, REG_SZ, (BYTE*)exeDirPath, strlen(exeDirPath) + 1);
-        RegCloseKey(hKey);
-        if (regResult == ERROR_SUCCESS) {
-            printf("Startup registration complete: %s will run at boot.\n", APP_RUNNER);
-        } else {
-            printf("Failed to register in registry.\n");
-            return ERR_SET_REGISTRY;
-        }
-    } else {
-        printf("Failed to open registry key.\n");
+    if (openResult != ERROR_SUCCESS) {
+        printf(ERR_REG_KEY_OPEN_MESSAGE);
         return ERR_REG_KEY_OPEN;
     }
 
-    return SUCCESS;
+    LONG setResult = RegSetValueEx(hKey, APP_NAME, 0, REG_SZ, (BYTE*)exeDirPath, strlen(exeDirPath) + 1);
+    RegCloseKey(hKey);
+    
+    if (setResult == ERROR_SUCCESS) {
+        printf("Registry successfully registered.\n");
+        return SUCCESS;
+    } else {
+        printf(ERR_SET_REGISTRY_MESSAGE);
+        return ERR_SET_REGISTRY;
+    }
 }
 
 int remove_registry() {
+    int response = is_registry_exist();
+    if (response == ERR_REG_KEY_OPEN) {
+        printf(ERR_REG_KEY_OPEN_MESSAGE);
+        return ERR_REG_KEY_OPEN;
+    } else if (response == REGISTRY_NOT_FOUND) {
+        printf("Already removed.\n");
+        return SUCCESS;
+    }
+
+    // response == REGISTRY_FOUND
+
     HKEY hKey;
     LONG regResult = RegOpenKeyEx(HKEY_CURRENT_USER, REG_PATH, 0, KEY_SET_VALUE, &hKey);
 
-    if (regResult == ERROR_SUCCESS) {
-        regResult = RegDeleteValue(hKey, APP_NAME);
-        RegCloseKey(hKey);
-        if (regResult == ERROR_SUCCESS) {
-            printf("Startup registration removed.\n");
-        } else {
-            printf("Failed to remove or key does not exist.\n");
-            return ERR_SET_REGISTRY;
-        }
-    } else {
-        printf("Failed to open registry key.\n");
+    if (regResult != ERROR_SUCCESS) {
+        printf(ERR_REG_KEY_OPEN_MESSAGE);
         return ERR_REG_KEY_OPEN;
     }
 
-    return SUCCESS;
+    regResult = RegDeleteValue(hKey, APP_NAME);
+    RegCloseKey(hKey);
+
+    if (regResult == ERROR_SUCCESS) {
+        printf("Registry entry removed successfully.\n");
+        return SUCCESS;
+    } else {
+        printf(ERR_DELETE_REGISTRY_MESSAGE);
+        return ERR_DELETE_REGISTRY;
+    }
 }
 
 int show_version() {
-    printf("%s version 1.0.0\n", APP_NAME);
+    printf("%s version %s\n", APP_NAME, VERSION);
     return SUCCESS;
 }
 
@@ -323,12 +349,23 @@ struct CommandWithOptions commandWithOptions[] = {
             { NULL, NULL, NULL }
         }
     },
-    {
+        {
         .command = {
             "status",
             show_status
         },
         .options = {
+            { NULL, NULL, NULL }
+        }
+    },
+    {
+        .command = {
+            NULL,
+            NULL
+        },
+        .options = {
+            { "--help", "-h", show_help },
+            { "--version", "-v", show_version },
             { NULL, NULL, NULL }
         }
     },
@@ -351,17 +388,6 @@ struct CommandWithOptions commandWithOptions[] = {
         .options = {
             { "--add", "-a", add_registry },
             { "--remove", "-r", remove_registry },
-            { NULL, NULL, NULL }
-        }
-    },
-    {
-        .command = {
-            NULL,
-            NULL
-        },
-        .options = {
-            { "--help", "-h", show_help },
-            { "--version", "-v", show_version },
             { NULL, NULL, NULL }
         }
     },
