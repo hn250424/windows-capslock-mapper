@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -Wall -O2 -I./src/constants -I./src/utils
 TARGETS = cm.exe cm_runner.exe
 
-all: build/constants/app_constants.o build/constants/key_constants.o build/constants/result_constants.o build/utils/common.o build/utils/mutex.o build/utils/env.o build/utils/registry.o build/process.o $(TARGETS)
+all: $(TARGETS)
 
 build/constants/app_constants.o: src/constants/app_constants.c src/constants/app_constants.h
 	$(CC) $(CFLAGS) -c src/constants/app_constants.c -o build/constants/app_constants.o

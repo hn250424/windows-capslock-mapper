@@ -41,14 +41,14 @@ int off_runner() {
     char command[MAX_PATH + 20];
     snprintf(command, sizeof(command), "taskkill /F /IM %s >nul 2>&1", APP_RUNNER);
     system(command);
-    printf("Program has stopped");
+    printf("Program has stopped\n");
     return SUCCESS;
 }
 
 int show_status() {
     // 1. Check Mutex.
     int mutex_response = is_mutex_exist(MUTEX_KEY_RUNNER);
-    printf("[Mutex] %s\n", mutex_response ? "Program is already running." : "Program is not running.");
+    printf("[Mutex] %s\n", mutex_response ? "Program is running." : "Program is not running.");
 
     // 2. Check Env.
     // Get env path.
@@ -303,3 +303,75 @@ int show_help_invalid() {
     printf("Invalid command. Use '--help' to see available options.\n");
     return SUCCESS;
 }
+
+struct CommandWithOptions commandWithOptions[] = {
+    {
+        .command = {
+            "on",
+            on_runner
+        },
+        .options = {
+            { NULL, NULL, NULL }
+        }
+    },
+    {
+        .command = {
+            "off",
+            off_runner
+        },
+        .options = {
+            { NULL, NULL, NULL }
+        }
+    },
+    {
+        .command = {
+            "status",
+            show_status
+        },
+        .options = {
+            { NULL, NULL, NULL }
+        }
+    },
+    {
+        .command = {
+            "env",
+            NULL
+        },
+        .options = {
+            { "--add", "-a", add_env },
+            { "--remove", "-r", remove_env },
+            { NULL, NULL, NULL }
+        }
+    },
+    {
+        .command = {
+            "registry",
+            NULL
+        },
+        .options = {
+            { "--add", "-a", add_registry },
+            { "--remove", "-r", remove_registry },
+            { NULL, NULL, NULL }
+        }
+    },
+    {
+        .command = {
+            NULL,
+            NULL
+        },
+        .options = {
+            { "--help", "-h", show_help },
+            { "--version", "-v", show_version },
+            { NULL, NULL, NULL }
+        }
+    },
+    {
+        .command = {
+            NULL,
+            NULL
+        },
+        .options = {
+            { NULL, NULL, NULL }
+        }
+    },
+};

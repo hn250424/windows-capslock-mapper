@@ -1,24 +1,45 @@
 #include <stdio.h>
 #include <string.h>
+
 #include "process.h"
 
+int handleArgs(char* arg1, char* arg2) {
+    for (int i = 0; commandWithOptions[i].command.name != NULL || commandWithOptions[i].options[0].name != NULL; i++) {
+        int isArg1Cmd = commandWithOptions[i].command.name && strcmp(arg1, commandWithOptions[i].command.name) == 0;
+        int isArg2Cmd = commandWithOptions[i].command.name && strcmp(arg2, commandWithOptions[i].command.name) == 0;
+
+        if (isArg1Cmd || isArg2Cmd) {
+            char* opt = isArg1Cmd ? arg2 : arg1;
+
+            for (int j = 0; commandWithOptions[i].options[j].name != NULL; j++) {
+                if (strcmp(opt, commandWithOptions[i].options[j].name) == 0 || strcmp(opt, commandWithOptions[i].options[j].alias) == 0) {
+                    return commandWithOptions[i].options[j].handler();
+                }
+            }
+        }
+    }
+
+    return show_help_invalid();
+}
+
+int handleArg(char* arg) {
+    for (int i = 0; commandWithOptions[i].command.name || commandWithOptions[i].options[0].name != NULL; i++) {
+        if (commandWithOptions[i].command.name != NULL) {
+            if (strcmp(arg, commandWithOptions[i].command.name) == 0) return commandWithOptions[i].command.handler();
+        } else {
+            for (int j = 0; commandWithOptions[i].options[j].name != NULL; j++) {
+                if (strcmp(arg, commandWithOptions[i].options[j].name) == 0 || strcmp(arg, commandWithOptions[i].options[j].alias) == 0) {
+                    return commandWithOptions[i].options[j].handler();
+                }
+            }
+        }
+    }
+
+    return show_help_invalid();
+}
+
 int main(int argc, char* argv[]) {
-    if (argc < 2 || argc > 3) return show_help_invalid();
-
-    char* first = argv[1];
-    char* second = argv[2];
-    int result = 0;
-
-    if ( (strcmp(first, "on") == 0) && ! second ) result = on_runner();
-    else if ( (strcmp(first, "off") == 0) && ! second) result = off_runner();
-    else if ( (strcmp(first, "status") == 0) && ! second) result = show_status();
-    else if ( (strcmp(first, "env") == 0) && (strcmp(second, "--add") == 0) ) result = add_env();
-    else if ( (strcmp(first, "env") == 0) && (strcmp(second, "--remove") == 0) ) result = remove_env();
-    else if ( (strcmp(first, "registry") == 0) && (strcmp(second, "--add") == 0) ) result = add_registry();
-    else if ( (strcmp(first, "registry") == 0) && (strcmp(second, "--remove") == 0) ) result = remove_registry();
-    else if ( (strcmp(first, "--version") == 0) && ! second) result = show_version();
-    else if ( (strcmp(first, "--help") == 0) && ! second) result = show_help();
-    else result = show_help_invalid();
-
-    return result == 0 ? 0 : 1;
+    if (argc == 2) return handleArg(argv[1]);
+    else if (argc == 3) return handleArgs(argv[1], argv[2]);
+    else return show_help_invalid();
 }

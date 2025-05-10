@@ -12,4 +12,24 @@ int show_version();
 int show_help();
 int show_help_invalid();
 
+typedef int (*ProcessHandler)();
+
+struct Option {
+    char* name;
+    char* alias;
+    ProcessHandler handler;
+};
+
+struct Command {
+    char* name;
+    ProcessHandler handler;
+};
+
+struct CommandWithOptions {
+    struct Command command;
+    struct Option options[3];
+};
+
+extern struct CommandWithOptions commandWithOptions[];
+
 #endif
