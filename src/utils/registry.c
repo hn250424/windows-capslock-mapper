@@ -4,7 +4,7 @@
 #include "../constants/result_constants.h"
 #include "registry.h"
 
-int is_registry_exist() {
+int find_registry() {
     HKEY hKey;
     LONG openResult = RegOpenKeyEx(HKEY_CURRENT_USER, REG_PATH, 0, KEY_QUERY_VALUE, &hKey);
 

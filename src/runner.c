@@ -21,9 +21,12 @@ void sendMouseLeftUp() {
     SendInput(1, &input, sizeof(INPUT));
 }
 
+// This function is called repeatedly by the OS while the key is held down (e.g., during a drag operation).
 LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
     if (nCode == HC_ACTION) {
         KBDLLHOOKSTRUCT *p = (KBDLLHOOKSTRUCT *)lParam;
+        // If the flag isLeftDown is not set, 
+        // the folder opens when holding the click with Caps Lock pressed, unlike using the mouse where it doesn't open.
         if (p->vkCode == VK_CAPITAL) {
             if (wParam == WM_KEYDOWN && ! isLeftDown) {
                 sendMouseLeftDown();
@@ -35,6 +38,8 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                 return 1;
             }
 
+            // During dragging, the keydown event is triggered repeatedly once the flag isLeftDown is set to 1.
+            // To prevent this, we return early here.
             return 1;
         }
     }
@@ -46,7 +51,7 @@ int main() {
     
     HANDLE hMutex;
 
-    int response = is_mutex_exist(MUTEX_KEY_RUNNER);
+    int response = find_mutex(MUTEX_KEY_RUNNER);
     if (response == MUTEX_FOUND) {
         return 0;
     } else {

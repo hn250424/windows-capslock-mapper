@@ -3,6 +3,6 @@
 
 #include <windows.h>
 
-int get_current_path(char* exeDirPath , const char* fileName);
+int get_current_path(char* exeDirPath, const char* fileName);
 
 #endif

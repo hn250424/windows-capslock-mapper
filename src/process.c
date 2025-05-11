@@ -14,7 +14,7 @@
 #include "process.h"
 
 int on_runner() {
-    int response = is_mutex_exist(MUTEX_KEY_RUNNER);
+    int response = find_mutex(MUTEX_KEY_RUNNER);
     if (response == MUTEX_FOUND) {
         printf(MUTEX_FOUND_MESSAGE);
     } else {
@@ -31,7 +31,8 @@ int on_runner() {
         strcat(path, APP_RUNNER);
 
         char command[MAX_PATH + 20];
-        snprintf(command, sizeof(command), "start /B %s", path);
+        // snprintf(command, sizeof(command), "start /B %s", path);
+        snprintf(command, sizeof(command), "start \"\" /B \"%s\"", path);
         system(command);
 
         printf("Program has started.\n");
@@ -41,7 +42,7 @@ int on_runner() {
 }
 
 int off_runner() {
-    int response = is_mutex_exist(MUTEX_KEY_RUNNER);
+    int response = find_mutex(MUTEX_KEY_RUNNER);
     if (response == MUTEX_FOUND) {
         char command[MAX_PATH + 20];
         snprintf(command, sizeof(command), "taskkill /F /IM %s >nul 2>&1", APP_RUNNER);
@@ -56,7 +57,7 @@ int off_runner() {
 
 int show_status() {
     // 1. Check Mutex.
-    int mutex_response = is_mutex_exist(MUTEX_KEY_RUNNER);
+    int mutex_response = find_mutex(MUTEX_KEY_RUNNER);
 
     // 2. Check Env.
     // Get env path.
@@ -77,7 +78,7 @@ int show_status() {
         return envPathResult;
     }
 
-    // Get Exe dir path.
+    // Get exe dir path.
     char exeDirPath[MAX_PATH];
     int currentPathResult = get_current_path(exeDirPath, APP_CMD);
     strcat(exeDirPath, ";");
@@ -94,7 +95,7 @@ int show_status() {
     // Remember call free(envPath) & RegCloseKey(hKey_env)
 
     // 3. Check Registry.
-    int registry_response = is_registry_exist();
+    int registry_response = find_registry();
     if (registry_response == ERR_REG_KEY_OPEN) {
         free(envPath);
         RegCloseKey(hKey_env);
@@ -104,9 +105,9 @@ int show_status() {
     }
 
     // 4. print.
-    printf("[Running status]    %s\n", mutex_response == MUTEX_FOUND ? "Running." : "Not running.");
-    printf("[Env status]        %s\n", strstr(envPath, exeDirPath) == NULL ? "Not found." : "Found.");
-    printf("[Registry status]   %s\n", registry_response == REGISTRY_FOUND ? "Found." : "Not found.");
+    printf("[Running status]    %s\n", mutex_response == MUTEX_FOUND ? "\033[0;32mRunning.\033[0m" : "\033[0;31mNot running.\033[0m");
+    printf("[Env status]        %s\n", strstr(envPath, exeDirPath) != NULL ? "\033[0;32mfound.\033[0m" : "\033[0;31mNot Found.\033[0m");
+    printf("[Registry status]   %s\n", registry_response == REGISTRY_FOUND ? "\033[0;32mFound.\033[0m" : "\033[0;31mNot found.\033[0m");
     
     // 5. clean.
     free(envPath);
@@ -230,7 +231,7 @@ int remove_env() {
 }
 
 int add_registry() {
-    int response = is_registry_exist();
+    int response = find_registry();
     if (response == ERR_REG_KEY_OPEN) {
         printf(ERR_REG_KEY_OPEN_MESSAGE);
         return ERR_REG_KEY_OPEN;
@@ -239,7 +240,7 @@ int add_registry() {
         return SUCCESS;
     } 
     
-    // response == REGISTRY_NOT_FOUND
+    // response == REGISTRY_NOT_FOUND ↓
     
     char exeDirPath[MAX_PATH];
     int currentPathResult = get_current_path(exeDirPath, APP_CMD);
@@ -274,7 +275,7 @@ int add_registry() {
 }
 
 int remove_registry() {
-    int response = is_registry_exist();
+    int response = find_registry();
     if (response == ERR_REG_KEY_OPEN) {
         printf(ERR_REG_KEY_OPEN_MESSAGE);
         return ERR_REG_KEY_OPEN;
@@ -283,7 +284,7 @@ int remove_registry() {
         return SUCCESS;
     }
 
-    // response == REGISTRY_FOUND
+    // response == REGISTRY_FOUND ↓
 
     HKEY hKey;
     LONG regResult = RegOpenKeyEx(HKEY_CURRENT_USER, REG_PATH, 0, KEY_SET_VALUE, &hKey);
@@ -312,15 +313,20 @@ int show_version() {
 
 int show_help() {
     printf("Usage:\n");
-    printf("  on                    - Start %s\n", APP_RUNNER);
-    printf("  off                   - Terminate %s\n", APP_RUNNER);
-    printf("  env --add             - Add the current user path to the environment\n");
-    printf("  env --remove          - Remove the current user path from the environment\n");
-    printf("  registry --add        - Register %s to run on startup (registry)\n", APP_RUNNER);
-    printf("  registry --remove     - Remove %s from startup registry\n", APP_RUNNER);
-    printf("  status                - Show operating status\n");
-    printf("  --version             - Show version info\n");
-    printf("  --help                - Show this help message\n");
+    printf("  on                       - Start mapper process\n");
+    printf("  off                      - Terminate mapper process\n");
+    printf("  status | s               - Check mapper status\n\n");
+
+    printf("  env | e                  - Manage environment variables\n");
+    printf("      --add     | -a       - Add environment variables\n");
+    printf("      --remove  | -r       - Remove environment variables\n\n");
+
+    printf("  reg | r                  - Manage registry startup entry\n");
+    printf("      --add     | -a       - Add mapper to startup (via registry)\n");
+    printf("      --remove  | -r       - Remove mapper from startup\n\n");
+
+    printf("  --help    | -h           - Show this help message\n");
+    printf("  --version | -v           - Show version info\n");
 
     return SUCCESS;
 }
@@ -330,9 +336,11 @@ int show_help_invalid() {
     return SUCCESS;
 }
 
+// Check for NULL 'name' values to terminate the list of commands and options.
 struct CommandWithOptions commandWithOptions[] = {
     {
         .command = {
+            "on",
             "on",
             on_runner
         },
@@ -343,6 +351,7 @@ struct CommandWithOptions commandWithOptions[] = {
     {
         .command = {
             "off",
+            "off",
             off_runner
         },
         .options = {
@@ -352,6 +361,7 @@ struct CommandWithOptions commandWithOptions[] = {
         {
         .command = {
             "status",
+            "s",
             show_status
         },
         .options = {
@@ -360,6 +370,7 @@ struct CommandWithOptions commandWithOptions[] = {
     },
     {
         .command = {
+            NULL,
             NULL,
             NULL
         },
@@ -372,6 +383,7 @@ struct CommandWithOptions commandWithOptions[] = {
     {
         .command = {
             "env",
+            "e",
             NULL
         },
         .options = {
@@ -382,7 +394,8 @@ struct CommandWithOptions commandWithOptions[] = {
     },
     {
         .command = {
-            "registry",
+            "reg",
+            "r",
             NULL
         },
         .options = {
@@ -393,6 +406,7 @@ struct CommandWithOptions commandWithOptions[] = {
     },
     {
         .command = {
+            NULL,
             NULL,
             NULL
         },

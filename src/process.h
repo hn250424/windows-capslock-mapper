@@ -22,6 +22,7 @@ struct Option {
 
 struct Command {
     char* name;
+    char* alias;
     ProcessHandler handler;
 };
 

@@ -7,7 +7,7 @@ HANDLE create_global_mutex(const char* name) {
     return CreateMutexA(NULL, FALSE, name);
 }
 
-int is_mutex_exist(const char* name) {
+int find_mutex(const char* name) {
     HANDLE hMutex = OpenMutexA(SYNCHRONIZE, FALSE, name);
     if (hMutex) {
         CloseHandle(hMutex);

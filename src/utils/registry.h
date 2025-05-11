@@ -3,6 +3,6 @@
 
 #include <windows.h>
 
-int is_registry_exist();
+int find_registry();
 
 #endif

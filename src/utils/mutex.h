@@ -4,7 +4,7 @@
 #include <windows.h>
 
 HANDLE create_global_mutex(const char* name);
-int is_mutex_exist(const char* name);
+int find_mutex(const char* name);
 void close_mutex(HANDLE hMutex);
 
 #endif
