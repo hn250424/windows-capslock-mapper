@@ -14,6 +14,9 @@ To type capital letters, use the Shift key instead of Caps Lock during operation
 - **Quickly enable or disable with simple CLI commands**
 In cases where holding Shift isn't practical—like writing in all caps—you can easily pause and resume the program using 'cm off' and 'cm on'.
 
+- **No administrator privileges required**  
+The program runs without elevation, so no UAC prompts appear. As a result, key mapping will **not work in elevated windows** (e.g., installers or applications running as administrator).
+
 
 ## Commands
 
