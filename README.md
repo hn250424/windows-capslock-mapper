@@ -5,13 +5,13 @@ A small Windows utility that maps the Caps Lock key to simulate a left mouse cli
 
 ## Features
 
-- **Simulate left mouse clicks using the Caps Lock key**
+- **Simulate left mouse clicks using the Caps Lock key**  
 Helps reduce on the right wrist strain by allowing you to click without using the mouse button.
 
-- **Caps Lock function is overridden while the program is running**
+- **Caps Lock function is overridden while the program is running**  
 To type capital letters, use the Shift key instead of Caps Lock during operation.
 
-- **Quickly enable or disable with simple CLI commands**
+- **Quickly enable or disable with simple CLI commands**  
 In cases where holding Shift isn't practical—like writing in all caps—you can easily pause and resume the program using 'cm off' and 'cm on'.
 
 - **No administrator privileges required**  
